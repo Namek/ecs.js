@@ -1,10 +1,15 @@
 {
   "devDependencies": {
     "flow-bin": "^0.54.1",
-    "flow-remove-types": "^1.2.1"
+    "flow-remove-types": "^1.2.1",
+    "npm-watch": "^0.2.0"
   },
   "scripts": {
     "build": "flow-remove-types src/ -d lib/",
-    "prepublish": "yarn run build"
+    "prepublish": "yarn run build",
+    "watch": "npm-watch build"
+  },
+  "watch": {
+    "build": "src/**/*"
   }
 }
