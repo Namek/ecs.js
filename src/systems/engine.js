@@ -1,11 +1,13 @@
+// @flow
+
 import {
-  BaseSystem, ComponentFamily, EntitySystem
+  BaseSystem, ComponentFamily, Entity, EntitySystem
 } from "../ecs.js"
 
 import c from '../components.js'
 
 
-export function newShapeRect(width, height, rotation) {
+export function newShapeRect(width: number, height: number, rotation: ?number) {
   return {
     type: 'rect',
     width,
@@ -13,7 +15,7 @@ export function newShapeRect(width, height, rotation) {
     rotation: rotation || 0
   }
 }
-export function newShapeCircle(radius) {
+export function newShapeCircle(radius: number) {
   return {
     type: 'circle',
     radius
@@ -21,11 +23,14 @@ export function newShapeCircle(radius) {
 }
 
 export class ShapeRenderSystem extends EntitySystem {
+  canvas: HTMLCanvasElement
+  ctx: CanvasRenderingContext2D
+
   constructor() {
     super(ComponentFamily.all(
       c.Shape
     ))
-    this.canvas = document.getElementById('canvas')
+    this.canvas = (document.getElementById('canvas'): any)
     this.ctx = this.canvas.getContext('2d')
   }
 
@@ -34,7 +39,7 @@ export class ShapeRenderSystem extends EntitySystem {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
   }
 
-  process(dt, e) {
+  process(dt: number, e: Entity) {
     const input = this.world.getSystem(InputSystem)
     const ctx = this.ctx
     const shape = e.get(c.Shape)
@@ -86,7 +91,7 @@ export class ShapeRenderSystem extends EntitySystem {
     }
   }
 
-  strokeFill(ctx, color) {
+  strokeFill(ctx: CanvasRenderingContext2D, color: String) {
     if (color) {
       if (color.fill) {
         ctx.fill()
@@ -105,6 +110,14 @@ export class ShapeRenderSystem extends EntitySystem {
  * Supports XBox 360 game pad.
  */
 export class InputSystem extends BaseSystem {
+  gamepad: any
+  buttonState: Object
+  prevButtonState: Object
+  justPressedButtons: Object
+  justReleasedButtons: Object
+  axes: Array<number>
+  leftStick: Array<any>
+
   constructor() {
     super()
     this.gamepad = null
@@ -116,7 +129,7 @@ export class InputSystem extends BaseSystem {
     this.leftStick = [0, 0, 0, 0, 0]
   }
 
-  process(dt) {
+  process(dt: number) {
     const gamepad = this.gamepad
     for (let i in gamepad.buttons) {
       let btn = gamepad.buttons[i]
@@ -131,31 +144,31 @@ export class InputSystem extends BaseSystem {
     this.leftStick[1] = gamepad.axes[1]
   }
 
-  isButtonPressed(b) {
+  isButtonPressed(b: any) {
     if (typeof (b) == "object") {
       return b.pressed
     }
     return b == 1.0
   }
 
-  wasButtonJustPressed(btnNameOrIndex) {
+  wasButtonJustPressed(btnNameOrIndex: string | number) {
     let btnIdx = this._getBtnIndex(btnNameOrIndex)
     return this.justPressedButtons[btnIdx]
   }
 
-  wasButtonJustReleased(btnNameOrIndex) {
+  wasButtonJustReleased(btnNameOrIndex: string | number) {
     let btnIdx = this._getBtnIndex(btnNameOrIndex)
     return this.justReleasedButtons[btnIdx]
   }
 
-  getLeftStick(moveBias) {
-    let axisXMoves = this.leftStick[2] = Math.abs(this.leftStick[0]) >= moveBias
-    let axisYMoves = this.leftStick[3] = Math.abs(this.leftStick[1]) >= moveBias
+  getLeftStick(moveBias: number) {
+    let axisXMoves = this.leftStick[2] = Math.abs((this.leftStick[0]: number)) >= moveBias
+    let axisYMoves = this.leftStick[3] = Math.abs((this.leftStick[1]: number)) >= moveBias
     this.leftStick[4] = axisXMoves || axisYMoves
     return this.leftStick
   }
 
-  _getBtnIndex(btnNameOrIndex) {
+  _getBtnIndex(btnNameOrIndex: string | number) {
     let btnIdx = btnNameOrIndex
 
     if (btnNameOrIndex.constructor === String) {

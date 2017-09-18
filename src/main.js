@@ -1,48 +1,18 @@
+// @flow
+
 import {
   BaseSystem, ComponentFamily, Entity, EntitySystem, World
 } from "./ecs.js";
 import {
   InputSystem, ShapeRenderSystem, newShapeRect, newShapeCircle
 } from "./systems/engine.js"
+import {
+  AvatarLogicSystem
+} from "./systems/game_logic.js"
 
 import c from './components.js'
+import C from './constants.js'
 
-const LINE_LEN = 70
-const POINTER_SIZE = 10
-
-const AVATAR_SPEED = 240
-
-
-class AvatarLogicSystem extends EntitySystem {
-  constructor() {
-    super(ComponentFamily.all(c.Avatar))
-  }
-  init() {
-    this.input = this.getSystem(InputSystem)
-  }
-  process(dt, e) {
-    let avatar = e.get(c.Avatar)
-    let spatial = e.get(c.Spatial)
-    let [axisX, axisY, axisXMoves, axisYMoves, axisMoves] = this.input.getLeftStick(0.2)
-
-    if (axisMoves) {
-      if (axisXMoves)
-        spatial.x += axisX * AVATAR_SPEED * dt
-
-      if (axisYMoves)
-        spatial.y += axisY * AVATAR_SPEED * dt
-
-      if (this.input.wasButtonJustPressed('A') && !avatar.doesSomething) {
-        avatar.doesSomething = true
-        e.toggle(c.Invisible)
-      }
-      else if (this.input.wasButtonJustReleased('A') && avatar.doesSomething) {
-        avatar.doesSomething = false
-        e.toggle(c.Invisible)
-      }
-    }
-  }
-}
 
 
 // setTimeout(() => {
@@ -63,7 +33,7 @@ class AvatarLogicSystem extends EntitySystem {
   }
 
   window.addEventListener("gamepadconnected", function (e) {
-    let gamepad = navigator.getGamepads()[e.gamepad.index];
+    let gamepad = window.navigator.getGamepads()[e.gamepad.index];
 
     console.log(
       "Gamepad connected at index %d: %s. %d buttons, %d axes.",
@@ -80,7 +50,7 @@ class AvatarLogicSystem extends EntitySystem {
 
 
 
-
+/*
 class AvatarRenderSystem extends EntitySystem {
   process() {
     const entities = this.getEntities()
@@ -164,3 +134,4 @@ class RenderSystem extends EntitySystem {
     )
   }
 }
+*/

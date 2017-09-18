@@ -1,3 +1,5 @@
+// @flow
+
 let counter = 0
 function c() {
   return counter++

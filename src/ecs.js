@@ -1,16 +1,29 @@
+// @flow
+
 export class World {
-  constructor(systemsTypes) {
+  allEntities: Array<Entity>
+  lastEntityId: number
+
+  // systemName -> entities[]
+  entitiesBySystem: Object
+
+  // entityId -> {componentTypes: [int], components:{cmpTypeId -> data}}
+  components: Object
+
+  systems: Array<BaseSystem>
+  systemsByName: Object
+
+  onNextFrameActions: Array<() => void>
+
+
+  constructor(systemsTypes: Array<Class<BaseSystem>>) {
     this.allEntities = []
     this.lastEntityId = 0
-
-    // systemName -> entities[]
     this.entitiesBySystem = {}
-
-    // entityId -> {componentTypes: [int], components:{cmpTypeId -> data}}
     this.components = {}
-
     this.systems = []
     this.systemsByName = {}
+    this.onNextFrameActions = []
 
     for (let type of systemsTypes) {
       let system = new type()
@@ -24,12 +37,10 @@ export class World {
       system.init()
     }
 
-    this.onNextFrameActions = []
-
     // TODO component deletion/set events
   }
 
-  process(deltaTime) {
+  process(deltaTime: number) {
     for (let action of this.onNextFrameActions) {
       action()
     }
@@ -43,8 +54,8 @@ export class World {
     // TODO deletion/set events
   }
 
-  getSystem(typeOrName) {
-    let name = this._toSystemName(typeOrName)
+  getSystem<T: BaseSystem>(typeOrName: Class<T> | string): T {
+    let name = _toSystemName(typeOrName)
     let system = this.systemsByName[name]
     if (!system) {
       throw new Error(`System ${name} not found!`)
@@ -52,7 +63,7 @@ export class World {
     return system
   }
 
-  getEntitiesForSystem(systemName) {
+  getEntitiesForSystem(systemName: string) {
     return this.entitiesBySystem[systemName]
   }
 
@@ -62,13 +73,13 @@ export class World {
     return entity
   }
 
-  deleteEntity(entityIdOrEntity, onNextFrame) {
-    let id = entityIdOrEntity.constructor.prototype === Entity
+  deleteEntity(entityIdOrEntity: number | Entity, onNextFrame: ?boolean) {
+    let id: number = entityIdOrEntity instanceof Entity
       ? entityIdOrEntity.id : entityIdOrEntity
 
     if (onNextFrame) {
       this.onNextFrameActions.push(
-        this.deleteEntity().bind(this, id)
+        this.deleteEntity.bind(this, id)
       )
     }
     else {
@@ -82,44 +93,18 @@ export class World {
         }
 
         let systemEntities = this.entitiesBySystem[systemName]
-        let entityIndex = this._findEntityIndex(id, systemEntities)
+        let entityIndex = _findEntityIndex(id, systemEntities)
         systemEntities.splice(entityIndex, 1)
       }
     }
   }
 
-  getEntity(id) {
-    let idx = this._findEntityIndex(id, this.allEntities)
+  getEntity(id: number) {
+    let idx = _findEntityIndex(id, this.allEntities)
     return idx !== null ? this.allEntities[idx] : null;
   }
 
-  _findEntityIndex(id, collection) {
-    let s = 0
-    let n = collection.length
-
-    while (s !== n) {
-      let center = s + Math.floor((n-s)/2)
-
-      if (center >= n) {
-        break
-      }
-
-      let entity = collection[center]
-      if (entity.id < id) {
-        s = center
-      }
-      else if (entity.id > id) {
-        n = center
-      }
-      else {
-        return center
-      }
-    }
-
-    return null
-  }
-
-  getComponent(cmpTypeId, entityId, dontThrowErrorComponentNotFound) {
+  getComponent(cmpTypeId: number, entityId: number, dontThrowErrorComponentNotFound: ?boolean) {
     let entityComponents = this.components[entityId]
     if (!entityComponents) {
       throw new Error(`Entity ${entityId} was not found!`)
@@ -132,7 +117,7 @@ export class World {
     return component
   }
 
-  setComponent(cmpTypeId, entityId, data, onNextFrame) {
+  setComponent(cmpTypeId: number, entityId: number, data: Object, onNextFrame: ?boolean) {
     if (onNextFrame) {
       this.onNextFrameActions.push(
         this.setComponent.bind(this, cmpTypeId, entityId, data)
@@ -155,7 +140,7 @@ export class World {
     }
   }
 
-  deleteComponent(entityId, cmpTypeId, onNextFrame) {
+  deleteComponent(entityId: number, cmpTypeId: number, onNextFrame: ?boolean) {
     if (onNextFrame) {
       this.onNextFrameActions.push(
         this.deleteComponent.bind(this, entityId, cmpTypeId)
@@ -175,26 +160,17 @@ export class World {
     }
   }
 
-  hasComponent(cmpTypeId, entityId) {
+  hasComponent(cmpTypeId: number, entityId: number) {
     return !!this.getComponent(cmpTypeId, entityId, true)
   }
 
-  _toSystemName(typeOrName) {
-    let name =
-      typeOrName.constructor.prototype === String
-      ? typeOrName
-      : typeOrName.name
-
-    return name
-  }
-
-  _updateEntitySystemBelongingness(entityId, componentTypes) {
+  _updateEntitySystemBelongingness(entityId: number, componentTypes: Array<number>) {
     for (let system of this.systems) {
       if (!(system instanceof EntitySystem)) {
         continue
       }
       let systemEntities = this.entitiesBySystem[system.constructor.name]
-      let idx = this._findEntityIndex(entityId, systemEntities)
+      let idx = _findEntityIndex(entityId, systemEntities)
       let belongsToSystem = idx !== null
       let canBeAdopted = system.componentFamily.accepts(componentTypes)
 
@@ -215,35 +191,39 @@ export class World {
 
 
 export class Entity {
-  constructor(world, id) {
+  world: World
+  id: number
+
+  constructor(world: World, id: number) {
     this.world = world
     this.id = id
   }
 
-  get(cmpTypeId, dontThrowErrorOnLack) {
+  get(cmpTypeId: number, dontThrowErrorOnLack: ?boolean) {
     return this.world.getComponent(cmpTypeId, this.id, dontThrowErrorOnLack)
   }
 
-  get$(cmpTypeId) {
+  get$(cmpTypeId: number) {
     return this.get(cmpTypeId, true)
   }
 
-  set(cmpTypeId, data) {
+  set(cmpTypeId: number, data: Object) {
     this.world.setComponent(cmpTypeId, this.id, data)
     return this
   }
 
-  del(cmpTypeId, onNextFrame) {
+  del(cmpTypeId: number, onNextFrame: ?boolean) {
     this.world.deleteComponent(cmpTypeId, this.id, onNextFrame)
     return this
   }
 
-  has(cmpTypeId) {
+  has(cmpTypeId: number) {
     return this.world.hasComponent(cmpTypeId, this.id)
   }
 
-  toggle(cmpTypeId) {
+  toggle(cmpTypeId: number) {
     const has = this.has(cmpTypeId)
+
     if (has) {
       this.del(cmpTypeId)
     }
@@ -258,15 +238,6 @@ export class Entity {
     this.world.deleteEntity(this.id)
   }
 }
-
-/**
- * Usage: 
- * `const [cShape, cColor, cPos] = DefineComponents(3)`
- */
-export function DefineComponents(num) {
-  return Array.apply(Array, Array(num)).map((_, idx) => idx)
-}
-
 
 export function ComponentFamily() {
   function indicesToArray(indices) {
@@ -315,11 +286,9 @@ ComponentFamily.not = (indices) => {
 
 
 export class BaseSystem {
-  constructor() {
-    this.world = null
-  }
+  world: World
 
-  getSystem(systemNameOrType) {
+  getSystem<T : BaseSystem>(systemNameOrType : Class<T> | string): T {
     return this.world.getSystem(systemNameOrType)
   }
 
@@ -328,19 +297,21 @@ export class BaseSystem {
   end() { }
 
   // TODO these are not called
-  onEntityAdded(e) { }
-  onEntityRemoved(e) { }
-  onComponentAdded(e, cmpData, cmpTypeId) { }
-  onComponentRemoved(e, cmpData, cmpTypeId) { }
+  onEntityAdded(e: Entity) { }
+  onEntityRemoved(e: Entity) { }
+  onComponentAdded(e: Entity, cmpData: Object, cmpTypeId: number) { }
+  onComponentRemoved(e: Entity, cmpData: Object, cmpTypeId: number) { }
 
-  _process(deltaTime) {
+  _process(deltaTime: number) {
     this.process(deltaTime)
   }
-  process(deltaTime) { }
+  process(deltaTime: number, ...optionalArgs: any) { }
 }
 
 export class EntitySystem extends BaseSystem {
-  constructor(componentFamily) {
+  componentFamily: ComponentFamily
+
+  constructor(componentFamily: ComponentFamily) {
     super()
     if (componentFamily.constructor !== ComponentFamily) {
       throw new Error(`ComponentFamily object expected for system: ${this.constructor.name}.`)
@@ -348,32 +319,36 @@ export class EntitySystem extends BaseSystem {
     this.componentFamily = componentFamily
   }
 
-  _process(deltaTime) {
+  _process(deltaTime: number) {
     let systemName = this.constructor.name
     let entities = this.world.getEntitiesForSystem(systemName)
     this.processEntities(deltaTime, entities)
   }
 
-  processEntities(deltaTime, entities) {
+  processEntities(deltaTime: number, entities: Array<Entity>) {
     for (let entity of entities) {
       this.process(deltaTime, entity)
     }
   }
 
-  process(deltaTime, entity) { }
+  process(deltaTime: number, entity: Entity) { }
 }
 
 class TagManager extends BaseSystem {
+  // entityId -> tags[]
+  taggedEntities: { [entityId: number]: Array<string> }
+
+  // tag -> entities[]
+  tagsList: { [tag: string]: Array<Entity> }
+
+  // tag -> entityId -> true
+  tagsHash: { [tag: string]: { [entityId: number]: boolean } }
+
+
   constructor() {
     super()
-
-    // entityId -> tags[]
     this.taggedEntities = {}
-
-    // tag -> entities[]
     this.tagsList = {}
-
-    // tag -> entityId -> true
     this.tagsHash = {}
   }
 
@@ -382,12 +357,12 @@ class TagManager extends BaseSystem {
     if (this.taggedEntities[id]) {
       delete this.taggedEntities[id]
 
-      for (let tag of this.tagsList) {
+      for (let tag in this.tagsList) {
         if (this.tagsList.hasOwnProperty(tag)) {
           const tagEntities = this.tagsList[tag]
-          const idx = tagEntities.indexOf(id)
+          const idx = _findEntityIndex(id, tagEntities)
 
-          if (idx >= 0) {
+          if (idx !== null) {
             tagEntities.splice(idx, 1)
             delete this.tagsHash[tag][id]
           }
@@ -424,4 +399,37 @@ class TagManager extends BaseSystem {
   getEntities(tag) {
     return this.tagsList[tag]
   }
+}
+
+function _findEntityIndex(id: number, collection: Array<Entity>) {
+  let s = 0
+  let n = collection.length
+
+  while (s !== n) {
+    let center = s + Math.floor((n-s)/2)
+
+    if (center >= n) {
+      break
+    }
+
+    let entity = collection[center]
+    if (entity.id < id) {
+      s = center
+    }
+    else if (entity.id > id) {
+      n = center
+    }
+    else {
+      return center
+    }
+  }
+
+  return null
+}
+
+function _toSystemName(typeOrName: any): string {
+  if (typeOrName.constructor.prototype === String)
+    return typeOrName
+  else
+    return typeOrName.name
 }
