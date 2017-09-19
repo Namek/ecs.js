@@ -140,7 +140,7 @@ export class World {
     }
   }
 
-  deleteComponent(entityId: number, cmpTypeId: number, onNextFrame: ?boolean) {
+  deleteComponent(cmpTypeId: number, entityId: number, onNextFrame: ?boolean) {
     if (onNextFrame) {
       this.onNextFrameActions.push(
         this.deleteComponent.bind(this, entityId, cmpTypeId)
