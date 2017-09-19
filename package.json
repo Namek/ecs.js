@@ -5,7 +5,7 @@
     "npm-watch": "^0.2.0"
   },
   "scripts": {
-    "build": "flow-remove-types src/ -d lib/",
+    "build": "flow-remove-types --pretty src/ -d lib/",
     "prepublish": "yarn run build",
     "watch": "npm-watch build"
   },

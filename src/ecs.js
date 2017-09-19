@@ -5,15 +5,20 @@ export class World {
   lastEntityId: number
 
   // systemName -> entities[]
-  entitiesBySystem: Object
+  entitiesBySystem: { [systemName: string]: Array<Entity> }
 
   // entityId -> {componentTypes: [int], components:{cmpTypeId -> data}}
-  components: Object
+  components: { [entityId: number]: {
+    componentTypes: Array<number>,
+    components: { [cmpTypeId: number]: Object }
+  } }
 
   systems: Array<BaseSystem>
   systemsByName: Object
 
   onNextFrameActions: Array<() => void>
+
+  injections: { [key: string]: any }
 
 
   constructor(systemsTypes: Array<Class<BaseSystem>>) {
@@ -24,6 +29,7 @@ export class World {
     this.systems = []
     this.systemsByName = {}
     this.onNextFrameActions = []
+    this.injections = {}
 
     for (let type of systemsTypes) {
       let system = new type()
@@ -33,11 +39,20 @@ export class World {
       this.systemsByName[name] = system
       this.entitiesBySystem[name] = []
     }
+
+    // TODO component deletion/set events
+  }
+
+  init(): World {
     for (let system of this.systems) {
       system.init()
     }
+    return this
+  }
 
-    // TODO component deletion/set events
+  register(key: string, obj: any): World {
+    this.injections[key] = obj
+    return this
   }
 
   process(deltaTime: number) {
@@ -79,7 +94,7 @@ export class World {
 
     if (onNextFrame) {
       this.onNextFrameActions.push(
-        this.deleteEntity.bind(this, id)
+        this.deleteEntity.bind(this, id, false)
       )
     }
     else {
@@ -94,14 +109,17 @@ export class World {
 
         let systemEntities = this.entitiesBySystem[systemName]
         let entityIndex = _findEntityIndex(id, systemEntities)
-        systemEntities.splice(entityIndex, 1)
+
+        if (entityIndex >= 0) {
+          systemEntities.splice(entityIndex, 1)
+        }
       }
     }
   }
 
   getEntity(id: number) {
     let idx = _findEntityIndex(id, this.allEntities)
-    return idx !== null ? this.allEntities[idx] : null;
+    return idx >= 0 ? this.allEntities[idx] : null;
   }
 
   getComponent(cmpTypeId: number, entityId: number, dontThrowErrorComponentNotFound: ?boolean) {
@@ -171,15 +189,20 @@ export class World {
       }
       let systemEntities = this.entitiesBySystem[system.constructor.name]
       let idx = _findEntityIndex(entityId, systemEntities)
-      let belongsToSystem = idx !== null
+      let belongsToSystem = idx >= 0
       let canBeAdopted = system.componentFamily.accepts(componentTypes)
 
       if (canBeAdopted && !belongsToSystem) {
         let entity = this.getEntity(entityId)
+
+        if (entity === null) {
+          throw new Error('impossible')
+        }
+
         systemEntities.push(entity)
       }
       else if (!canBeAdopted && belongsToSystem) {
-        if (idx === null) {
+        if (idx < 0) {
           throw new Error(`Entity ${entityId} not found when looked for the system ${system.constructor.name}`)
         }
 
@@ -277,11 +300,11 @@ export function ComponentFamily() {
     return true
   }
 }
-ComponentFamily.all = (indices) => {
-  return new ComponentFamily().all(indices)
+ComponentFamily.all = (...indices) => {
+  return new ComponentFamily().all(...indices)
 }
-ComponentFamily.not = (indices) => {
-  return new ComponentFamily().not(indices)
+ComponentFamily.not = (...indices) => {
+  return new ComponentFamily().not(...indices)
 }
 
 
@@ -295,6 +318,16 @@ export class BaseSystem {
   init() { }
   begin() { }
   end() { }
+
+  inject(key: string): any {
+    let obj = this.world.injections[key]
+
+    if (!obj) {
+      throw new Error(`inject: '${key}' not found!`)
+    }
+
+    return obj
+  }
 
   // TODO these are not called
   onEntityAdded(e: Entity) { }
@@ -326,8 +359,8 @@ export class EntitySystem extends BaseSystem {
   }
 
   processEntities(deltaTime: number, entities: Array<Entity>) {
-    for (let entity of entities) {
-      this.process(deltaTime, entity)
+    for (let n = entities.length, i = n-1; i >= 0; i--) {
+      this.process(deltaTime, entities[i])
     }
   }
 
@@ -362,7 +395,7 @@ class TagManager extends BaseSystem {
           const tagEntities = this.tagsList[tag]
           const idx = _findEntityIndex(id, tagEntities)
 
-          if (idx !== null) {
+          if (idx >= 0) {
             tagEntities.splice(idx, 1)
             delete this.tagsHash[tag][id]
           }
@@ -401,30 +434,26 @@ class TagManager extends BaseSystem {
   }
 }
 
-function _findEntityIndex(id: number, collection: Array<Entity>) {
-  let s = 0
-  let n = collection.length
+function _findEntityIndex(id: number, collection: Array<Entity>): number {
+  let min = 0
+  let max = collection.length - 1
 
-  while (s !== n) {
-    let center = s + Math.floor((n-s)/2)
-
-    if (center >= n) {
-      break
-    }
-
+  while (min <= max) {
+    let center = Math.floor((min + max)/2)
     let entity = collection[center]
+
     if (entity.id < id) {
-      s = center
+      min = center + 1
     }
     else if (entity.id > id) {
-      n = center
+      max = center - 1
     }
     else {
       return center
     }
   }
 
-  return null
+  return -1
 }
 
 function _toSystemName(typeOrName: any): string {

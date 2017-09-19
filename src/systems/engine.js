@@ -5,6 +5,7 @@ import {
 } from "../ecs.js"
 
 import c from '../components.js'
+import C from '../constants.js'
 
 
 export function newShapeRect(width: number, height: number, rotation: ?number) {
@@ -27,11 +28,12 @@ export class ShapeRenderSystem extends EntitySystem {
   ctx: CanvasRenderingContext2D
 
   constructor() {
-    super(ComponentFamily.all(
-      c.Shape
-    ))
-    this.canvas = (document.getElementById('canvas'): any)
-    this.ctx = this.canvas.getContext('2d')
+    super(ComponentFamily.all(c.Shape))
+  }
+
+  init() {
+    this.canvas = this.inject(C.Canvas)
+    this.ctx = this.inject(C.Context2D)
   }
 
   begin() {
@@ -56,7 +58,7 @@ export class ShapeRenderSystem extends EntitySystem {
     }
 
     if (shape.type === 'rect') {
-      const spatial = e.get(c.Spatial)
+      const spatial = e.get(c.Position)
       const rotating = shape.rotation*1 !== 0
 
       if (rotating) {
@@ -70,7 +72,7 @@ export class ShapeRenderSystem extends EntitySystem {
       }
     }
     else if (shape.type === 'line') {
-      const spatial = e.get$(c.Spatial)//optional
+      const spatial = e.get$(c.Position)//optional
       const x = spatial ? spatial.x : 0
       const y = spatial ? spatial.y : 0
 
@@ -80,7 +82,7 @@ export class ShapeRenderSystem extends EntitySystem {
       this.strokeFill(ctx, color)
     }
     else if (shape.type === 'circle') {
-      const spatial = e.get(c.Spatial)
+      const spatial = e.get(c.Position)
 
       ctx.beginPath()
       ctx.arc(spatial.x, spatial.y, shape.radius, 0, 2*Math.PI)

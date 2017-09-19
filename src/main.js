@@ -7,7 +7,7 @@ import {
   InputSystem, ShapeRenderSystem, newShapeRect, newShapeCircle
 } from "./systems/engine.js"
 import {
-  AvatarLogicSystem
+  GameStateSystem, AvatarLogicSystem, BlockLogicSystem, EntityFactoryManager
 } from "./systems/game_logic.js"
 
 import c from './components.js'
@@ -15,20 +15,35 @@ import C from './constants.js'
 
 
 
+const canvas: any = document.getElementById('canvas')
+const ctx: any = canvas.getContext('2d')
+
 let world = new World([
+  EntityFactoryManager,
+
+  // logic
+  GameStateSystem,
   InputSystem,
+  BlockLogicSystem,
   AvatarLogicSystem,
-  ShapeRenderSystem
+
+  // render
+  ShapeRenderSystem,
+
 ])
+  .register(C.Canvas, canvas)
+  .register(C.Context2D, ctx)
+  .init()
+
 world.newEntity()
   .set(c.Avatar, { doesSomething: false })
   .set(c.Shape, newShapeCircle(20))
   .set(c.Color, {fill: 'blue'})
-  .set(c.Spatial, {x: 80, y: 200})
+  .set(c.Position, {x: 80, y: 200})
 
 function processWorld() {
   world.process(0.016)
-  requestAnimationFrame(() => processWorld())
+  requestAnimationFrame(processWorld)
 }
 
 window.addEventListener("gamepadconnected", function (e) {
@@ -44,3 +59,5 @@ window.addEventListener("gamepadconnected", function (e) {
 
   processWorld()
 })
+
+window.world = world

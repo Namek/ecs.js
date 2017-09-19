@@ -46,11 +46,11 @@ export default {
    */
   Color: c(),
 
-  /** Spatial
+  /** Position
    *  - x
    *  - y
    */
-  Spatial: c(),
+  Position: c(),
 
   /** Velocity
    *  - x
@@ -72,4 +72,7 @@ export default {
    * - doesSomething: bool
    */
   Avatar: c()
+
+
+, Block: c()
 }
