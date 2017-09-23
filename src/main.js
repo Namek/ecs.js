@@ -41,9 +41,13 @@ world.newEntity()
   .set(c.Color, {fill: 'blue'})
   .set(c.Position, {x: 80, y: 200})
 
+let prevTime = Date.now()
 function processWorld() {
-  world.process(0.016)
-  requestAnimationFrame(processWorld)
+    let curTime = Date.now()
+    let deltaTime = (curTime - prevTime)/1000
+    prevTime = curTime
+    world.process(deltaTime)
+    requestAnimationFrame(processWorld)
 }
 
 window.addEventListener("gamepadconnected", function (e) {
