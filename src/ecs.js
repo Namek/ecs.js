@@ -17,6 +17,7 @@ export class World {
   systemsByName: Object
 
   onNextFrameActions: Array<() => void>
+  entitiesToBeUpdated: Array<any>
 
   injections: { [key: string]: any }
 
@@ -29,6 +30,7 @@ export class World {
     this.systems = []
     this.systemsByName = {}
     this.onNextFrameActions = []
+    this.entitiesToBeUpdated = []
     this.injections = {}
 
     for (let type of systemsTypes) {
@@ -39,8 +41,6 @@ export class World {
       this.systemsByName[name] = system
       this.entitiesBySystem[name] = []
     }
-
-    // TODO component deletion/set events
   }
 
   init(): World {
@@ -56,17 +56,21 @@ export class World {
   }
 
   process(deltaTime: number) {
-    for (let action of this.onNextFrameActions) {
-      action()
-    }
-    this.onNextFrameActions.length = 0
-
     for (let system of this.systems) {
       system.begin()
       system._process(deltaTime)
       system.end()
     }
-    // TODO deletion/set events
+
+    for (let action of this.onNextFrameActions) {
+      action()
+    }
+    this.onNextFrameActions.length = 0
+
+    for (let i = 0, n = this.entitiesToBeUpdated.length; i < n; i += 2) {
+      this._updateEntitySystemBelongingness(this.entitiesToBeUpdated[i], this.entitiesToBeUpdated[i+1])
+    }
+    this.entitiesToBeUpdated.length = 0
   }
 
   getSystem<T: BaseSystem>(typeOrName: Class<T> | string): T {
@@ -92,6 +96,9 @@ export class World {
     let id: number = entityIdOrEntity instanceof Entity
       ? entityIdOrEntity.id : entityIdOrEntity
 
+    let entity: Entity = entityIdOrEntity instanceof Entity
+      ? entityIdOrEntity : this.getEntity(entityIdOrEntity)
+
     if (onNextFrame) {
       this.onNextFrameActions.push(
         this.deleteEntity.bind(this, id, false)
@@ -111,7 +118,10 @@ export class World {
         let entityIndex = _findEntityIndex(id, systemEntities)
 
         if (entityIndex >= 0) {
-          systemEntities.splice(entityIndex, 1)
+          let entity = systemEntities.splice(entityIndex, 1)[0]
+
+          let system = this.systemsByName[systemName]
+          system.onEntityRemoved(entity)
         }
       }
     }
@@ -119,7 +129,12 @@ export class World {
 
   getEntity(id: number) {
     let idx = _findEntityIndex(id, this.allEntities)
-    return idx >= 0 ? this.allEntities[idx] : null;
+
+    if (idx < 0) {
+      throw new Error(`Entity ${id} not found!`)
+    }
+
+    return this.allEntities[idx];
   }
 
   getComponent(cmpTypeId: number, entityId: number, dontThrowErrorComponentNotFound: ?boolean) {
@@ -154,7 +169,7 @@ export class World {
       }
       cmps.components[cmpTypeId] = data
 
-      this._updateEntitySystemBelongingness(entityId, cmps.componentTypes)
+      this.entitiesToBeUpdated.push(entityId, cmps.componentTypes)
     }
   }
 
@@ -172,8 +187,6 @@ export class World {
         cmps.componentTypes.splice(idx, 1)
 
         this._updateEntitySystemBelongingness(entityId, cmps.componentTypes)
-
-        // TODO call delete event
       }
     }
   }
@@ -195,18 +208,16 @@ export class World {
       if (canBeAdopted && !belongsToSystem) {
         let entity = this.getEntity(entityId)
 
-        if (entity === null) {
-          throw new Error('impossible')
-        }
-
         systemEntities.push(entity)
+        system.onEntityAdded(entity)
       }
       else if (!canBeAdopted && belongsToSystem) {
         if (idx < 0) {
           throw new Error(`Entity ${entityId} not found when looked for the system ${system.constructor.name}`)
         }
 
-        systemEntities.splice(idx, 1)
+        let entity = systemEntities.splice(idx, 1)[0]
+        system.onEntityRemoved(entity)
       }
     }
   }
@@ -329,11 +340,8 @@ export class BaseSystem {
     return obj
   }
 
-  // TODO these are not called
   onEntityAdded(e: Entity) { }
   onEntityRemoved(e: Entity) { }
-  onComponentAdded(e: Entity, cmpData: Object, cmpTypeId: number) { }
-  onComponentRemoved(e: Entity, cmpData: Object, cmpTypeId: number) { }
 
   _process(deltaTime: number) {
     this.process(deltaTime)
