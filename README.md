@@ -11,6 +11,40 @@ You could read my article about it - [Why ECS matter?](https://www.namekdev.net/
 
 Tech: ES6, Flowtype
 
+# API
+
+* `World`
+  * `process(deltaTime)` - the method you have to call in game loop
+  * `register(objName, obj)` - save any object for later (accessible for Systems)
+  * `getSystem<T: BaseSystem>(typeOrName: Class<T> | string): T`
+  * `getEntitiesForSystem(systemName: string)`
+  * `newEntity(): Entity`
+  * `deleteEntity(entityIdOrEntity: number | Entity, onNextFrame: ?boolean)`
+  * `getEntity(id: number)` - will throw Error if not found
+  * `setComponent()`, `getComponent()`, `hasComponent()`, `deleteComponent()` - also used by `Entity` helpers
+
+* `Entity` - just an `id` with some helpers calling `World` methods. Create using `World.newEntity()`.
+  * `destroy()` - remove entity from world with it's all components
+  * `get(cmpTypeId, dontThrowErrorOnLack = false)`
+  * `get$(cmpTypeId)` - equivalent of `get(cmpTypeId, true)`
+  * `set(cmpTypeId, componentData)`
+  * `del(cmpTypeId)` - remove component
+  * `has(cmpTypeId): boolean`
+  * `toggle(cmpTypeId)` - sets or remove a component - if setting then with empty object (`{}`)
+* `BaseSystem`
+  * just a basic loop that takes `deltaTime` in `process(dt)` and no entities
+  * `inject(objName)` - gets an object registered into `World`
+* `EntitySystem` (extends `BaseSystem`)
+  * takes `ComponentFamily` into constructor
+  * `process(dt, entities)`
+* `ComponentFamily` - define which entites will fall into system based on component acceptance list
+  * `all(...componentTypeIds)` - entity has to contain all defined components
+  * `not(...componentTypeIds)` - entity can't have any of given component type
+* `TagManager` (automatically added to every `World` instance)
+  * `tag(entityOrId, tag: string)`
+  * `untag(entityOrId)`
+  * `getEntities(tag: string)` - get all entities having the tag
+
 # Example usage
 
 First, let's import all the things:
