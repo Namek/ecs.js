@@ -28,7 +28,10 @@ export class ShapeRenderSystem extends EntitySystem {
   ctx: CanvasRenderingContext2D
 
   constructor() {
-    super(ComponentFamily.all(c.Shape))
+    super(ComponentFamily
+      .all(c.Shape)
+      .not(c.Invisible)
+    )
   }
 
   init() {
@@ -46,11 +49,6 @@ export class ShapeRenderSystem extends EntitySystem {
     const ctx = this.ctx
     const shape = e.get(c.Shape)
     const color = e.get$(c.Color)//optional
-    const invisible = e.get$(c.Invisible)//optional
-
-    if (invisible) {
-      return
-    }
 
     if (color) {
       ctx.fillStyle = color.fill || '#000'
