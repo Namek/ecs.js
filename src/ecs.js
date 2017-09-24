@@ -15,6 +15,7 @@ export class World {
 
   systems: Array<BaseSystem>
   systemsByName: Object
+  tagManager: TagManager
 
   onNextFrameActions: Array<() => void>
   entitiesToBeUpdated: Array<any>
@@ -33,13 +34,24 @@ export class World {
     this.entitiesToBeUpdated = []
     this.injections = {}
 
-    for (let type of systemsTypes) {
+    const makeSystem = <T>(type: Class<BaseSystem>): T => {
       let system = new type()
       let name = type.name
       system.world = this
       this.systems.push(system)
       this.systemsByName[name] = system
-      this.entitiesBySystem[name] = []
+
+      if (system instanceof EntitySystem) {
+        this.entitiesBySystem[name] = []
+      }
+
+      return (system: any)
+    }
+
+    this.tagManager = makeSystem(TagManager)
+    for (let type of systemsTypes) {
+      let system = makeSystem(type)
+      system.tagManager = this.tagManager
     }
   }
 
@@ -86,6 +98,10 @@ export class World {
     return this.entitiesBySystem[systemName]
   }
 
+  getEntitiesByTag(tag: string) {
+    return this.tagManager.getEntities(tag)
+  }
+
   newEntity() {
     let entity = new Entity(this, ++this.lastEntityId)
     this.allEntities.push(entity)
@@ -127,14 +143,14 @@ export class World {
     }
   }
 
-  getEntity(id: number) {
+  getEntity(id: number): Entity {
     let idx = _findEntityIndex(id, this.allEntities)
 
     if (idx < 0) {
       throw new Error(`Entity ${id} not found!`)
     }
 
-    return this.allEntities[idx];
+    return this.allEntities[idx]
   }
 
   getComponent(cmpTypeId: number, entityId: number, dontThrowErrorComponentNotFound: ?boolean) {
@@ -271,6 +287,23 @@ export class Entity {
   destroy() {
     this.world.deleteEntity(this.id)
   }
+
+  tag(tag: string): Entity {
+    this.world.tagManager.tag(this, tag)
+    return this
+  }
+
+  untag(tag: string) {
+    this.world.tagManager.untag(this, tag)
+  }
+
+  hasTag(tag: string): boolean {
+    return this.world.tagManager.hasTag(this, tag)
+  }
+
+  toggleTag(tag: string): boolean {
+    return this.world.tagManager.toggleTag(this, tag)
+  }
 }
 
 export function ComponentFamily() {
@@ -321,6 +354,7 @@ ComponentFamily.not = (...indices) => {
 
 export class BaseSystem {
   world: World
+  tagManager: TagManager
 
   getSystem<T : BaseSystem>(systemNameOrType : Class<T> | string): T {
     return this.world.getSystem(systemNameOrType)
@@ -375,70 +409,121 @@ export class EntitySystem extends BaseSystem {
   process(deltaTime: number, entity: Entity) { }
 }
 
-class TagManager extends BaseSystem {
+class TagManager extends EntitySystem {
   // entityId -> tags[]
-  taggedEntities: { [entityId: number]: Array<string> }
+  tagsByEntity: { [entityId: number]: Array<string> }
 
   // tag -> entities[]
-  tagsList: { [tag: string]: Array<Entity> }
+  entitiesByTag: { [tag: string]: Array<Entity> }
 
   // tag -> entityId -> true
-  tagsHash: { [tag: string]: { [entityId: number]: boolean } }
+  entityMembershipByTag: { [tag: string]: { [entityId: number]: boolean } }
 
 
   constructor() {
-    super()
-    this.taggedEntities = {}
-    this.tagsList = {}
-    this.tagsHash = {}
+    super(ComponentFamily.all())
+    this.tagsByEntity = {}
+    this.entitiesByTag = {}
+    this.entityMembershipByTag = {}
   }
 
-  onEntityRemoved(e) {
+  onEntityRemoved(e: Entity) {
     const id = e.id
-    if (this.taggedEntities[id]) {
-      delete this.taggedEntities[id]
 
-      for (let tag in this.tagsList) {
-        if (this.tagsList.hasOwnProperty(tag)) {
-          const tagEntities = this.tagsList[tag]
+    if (this.tagsByEntity[id]) {
+      delete this.tagsByEntity[id]
+
+      for (let tag in this.entitiesByTag) {
+        if (this.entitiesByTag.hasOwnProperty(tag)) {
+          const tagEntities = this.entitiesByTag[tag]
           const idx = _findEntityIndex(id, tagEntities)
 
           if (idx >= 0) {
             tagEntities.splice(idx, 1)
-            delete this.tagsHash[tag][id]
+            delete this.entityMembershipByTag[tag][id]
           }
         }
       }
     }
   }
 
-  tag(e, tag) {
+  tag(e: Entity|number, tag: string) {
     const id = e instanceof Entity ? e.id : e
-    let entities = this.tagsHash[tag]
-    if (!entities) {
-      entities = this.tagsHash[tag] = {}
-    }
+    const entity = e instanceof Entity ? e : this.world.getEntity(id)
 
-    let entityTags = entities[id]
+    let entityTags = this.tagsByEntity[id]
     if (!entityTags) {
-      entityTags = entities[id] = {}
+      entityTags = this.tagsByEntity[id] = [tag]
     }
-    entityTags[tag] = true
-  }
-
-  untag(e, tag) {
-    const id = e instanceof Entity ? e.id : e
-    let entities = this.tagsHash[tag]
-    if (entities) {
-      let entityTags = entities[id]
-      if (entityTags) {
-        delete entityTags[tag]
+    else {
+      if (entityTags.indexOf(tag) < 0) {
+        entityTags.push(tag)
       }
     }
+
+    let tagEntities = this.entitiesByTag[tag]
+    if (!tagEntities) {
+      tagEntities = this.entitiesByTag[tag] = []
+    }
+    if (tagEntities.indexOf(entity) < 0) {
+      tagEntities.push(entity)
+    }
+
+    let entities = this.entityMembershipByTag[tag]
+    if (!entities) {
+      entities = this.entityMembershipByTag[tag] = {}
+    }
+    entities[id] = true
   }
 
-  getEntities(tag) {
-    return this.tagsList[tag]
+  untag(e: Entity|number, tag: string) {
+    const id = e instanceof Entity ? e.id : e
+    const entity = e instanceof Entity ? e : this.world.getEntity(id)
+
+    let entityTags = this.tagsByEntity[id]
+    if (entityTags) {
+      let idx = entityTags.indexOf(tag)
+      if (idx >= 0) {
+        entityTags.splice(idx, 1)
+      }
+    }
+
+    let tagEntities = this.entitiesByTag[tag]
+    if (tagEntities) {
+      let idx = tagEntities.indexOf(entity)
+      if (idx >= 0) {
+        tagEntities.splice(idx, 1)
+      }
+    }
+
+    let entities = this.entityMembershipByTag[tag]
+    if (entities) {
+      delete entities[id]
+    }
+  }
+
+  hasTag(e: Entity|number, tag: string): boolean {
+    let id = e instanceof Entity ? e.id : e
+    let entityTags = this.tagsByEntity[id]
+
+    return entityTags.indexOf(tag) >= 0
+  }
+
+  toggleTag(e: Entity|number, tag: string): boolean {
+    const entity = e instanceof Entity ? e : this.world.getEntity(e)
+    const hadTag = this.hasTag(entity, tag)
+    if (hadTag) {
+      this.untag(entity, tag)
+    }
+    else {
+      this.tag(entity, tag)
+    }
+
+    return !hadTag
+  }
+
+  getEntities(tag: string): Array<Entity> {
+    return this.entitiesByTag[tag]
   }
 }
 

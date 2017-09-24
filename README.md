@@ -18,11 +18,12 @@ Tech: ES6, Flowtype
   * `register(objName, obj)` - save any object for later (accessible for Systems)
   * `getSystem<T: BaseSystem>(typeOrName: Class<T> | string): T`
   * `getEntitiesForSystem(systemName: string)`
+  * `getEntitiesByTag(tag: string)` - uses `TagManager.getEntities(tag)`
   * `newEntity(): Entity`
   * `deleteEntity(entityIdOrEntity: number | Entity, onNextFrame: ?boolean)`
   * `getEntity(id: number)` - will throw Error if not found
   * `setComponent()`, `getComponent()`, `hasComponent()`, `deleteComponent()` - also used by `Entity` helpers
-
+  * `tagManager` - reference to `TagManager`
 * `Entity` - just an `id` with some helpers calling `World` methods. Create using `World.newEntity()`.
   * `destroy()` - remove entity from world with it's all components
   * `get(cmpTypeId, dontThrowErrorOnLack = false)`
@@ -31,9 +32,14 @@ Tech: ES6, Flowtype
   * `del(cmpTypeId)` - remove component
   * `has(cmpTypeId): boolean`
   * `toggle(cmpTypeId)` - sets or remove a component - if setting then with empty object (`{}`)
+  * `tag(tag: string)` - set a tag
+  * `untag(tag: string)` - remove a tag
+  * `hasTag(tag: string): boolean`
+  * `toggleTag(tag: string): boolean` - toggles a tag, then returns equivalent of `hasTag(tag)`
 * `BaseSystem`
   * just a basic loop that takes `deltaTime` in `process(dt)` and no entities
   * `inject(objName)` - gets an object registered into `World`
+  * `tagManager` - a reference for convenience
 * `EntitySystem` (extends `BaseSystem`)
   * takes `ComponentFamily` into constructor
   * `process(dt, entities)`
@@ -41,9 +47,11 @@ Tech: ES6, Flowtype
   * `all(...componentTypeIds)` - entity has to contain all defined components
   * `not(...componentTypeIds)` - entity can't have any of given component type
 * `TagManager` (automatically added to every `World` instance)
-  * `tag(entityOrId, tag: string)`
+  * `tag(entityOrId, tag: string): Entity`
   * `untag(entityOrId)`
-  * `getEntities(tag: string)` - get all entities having the tag
+  * `hasTag(entityOrId): boolean`
+  * `toggleTag(entityOrId): boolean` - toggles a tag, then returns equivalent of `hasTag(tag)`
+  * `getEntities(tag: string): Array<Entity>` - get all entities having the tag
 
 # Example usage
 

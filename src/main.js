@@ -40,6 +40,7 @@ world.newEntity()
   .set(c.Shape, newShapeCircle(20))
   .set(c.Color, {fill: 'blue'})
   .set(c.Position, {x: 80, y: 200})
+  .tag("avatar")
 
 let prevTime = Date.now()
 function processWorld() {
