@@ -3,7 +3,8 @@
 import {
   BaseSystem, ComponentFamily, Entity, EntitySystem
 } from "../ecs.js"
-import {InputSystem} from "./engine.js"
+import {InputSystem, newShapeRect} from "./engine.js"
+import EntityFactoryManager from "./entity_factory.js"
 import c from '../components.js'
 import C from '../constants.js'
 
@@ -55,7 +56,7 @@ export class BlockLogicSystem extends EntitySystem {
   canvas: any
 
   constructor() {
-    super(ComponentFamily.all(c.Block, c.Position))
+    super(ComponentFamily.all(c.Block, c.Position, c.Shape))
   }
 
   init() {
@@ -65,31 +66,13 @@ export class BlockLogicSystem extends EntitySystem {
   process(dt: number, e: Entity) {
     let block = e.get(c.Block)
     let pos = e.get(c.Position)
+    let shape = e.get(c.Shape)
 
     pos.y += block.speed * dt
+    shape.rotation = (shape.rotation + 150 * dt) % 360
 
-    if (pos.y > this.canvas.height) {
+    if (pos.y > this.canvas.clientHeight) {
       e.destroy()
     }
-  }
-}
-
-export class EntityFactoryManager extends BaseSystem {
-  spawnPoints: Array<number>
-  lastSpawnIndex: number
-
-  constructor() {
-    super()
-    this.spawnPoints = [0.4, 0.2, 0.7, 0.1, 0.6]
-    this.lastSpawnIndex = -1
-  }
-
-  spawnBlock() {
-    this.lastSpawnIndex = (this.lastSpawnIndex + 1) % this.spawnPoints.length
-    let x = this.spawnPoints[this.lastSpawnIndex]
-
-    this.world.newEntity()
-      .set(c.Block, {speed: 200})
-      .set(c.Position, {x, y: 0})
   }
 }

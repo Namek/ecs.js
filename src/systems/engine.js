@@ -56,23 +56,24 @@ export class ShapeRenderSystem extends EntitySystem {
     }
 
     if (shape.type === 'rect') {
-      const spatial = e.get(c.Position)
+      const pos = e.get(c.Position)
       const rotating = shape.rotation*1 !== 0
 
       if (rotating) {
-        ctx.rotate(shape.rotation)
+        ctx.save()
+        ctx.translate(pos.x + shape.width/2, pos.y + shape.height/2)
+        ctx.rotate(shape.rotation * Math.PI / 180.0)
+        ctx.fillRect(-shape.width/2, -shape.height/2, shape.width, shape.height)
+        ctx.restore()
       }
-
-      ctx.fillRect(spatial.x, spatial.y, shape.width, shape.height)
-
-      if (rotating) {
-        ctx.setTransform(1,0,0,1,0,0)
+      else {
+        ctx.fillRect(pos.x, pos.y, shape.width, shape.height)
       }
     }
     else if (shape.type === 'line') {
-      const spatial = e.get$(c.Position)//optional
-      const x = spatial ? spatial.x : 0
-      const y = spatial ? spatial.y : 0
+      const pos = e.get$(c.Position)//optional
+      const x = pos ? pos.x : 0
+      const y = pos ? pos.y : 0
 
       ctx.beginPath()
       ctx.moveTo(x + shape.x0, y + shape.y0)
@@ -80,10 +81,10 @@ export class ShapeRenderSystem extends EntitySystem {
       this.strokeFill(ctx, color)
     }
     else if (shape.type === 'circle') {
-      const spatial = e.get(c.Position)
+      const pos = e.get(c.Position)
 
       ctx.beginPath()
-      ctx.arc(spatial.x, spatial.y, shape.radius, 0, 2*Math.PI)
+      ctx.arc(pos.x, pos.y, shape.radius, 0, 2*Math.PI)
       this.strokeFill(ctx, color)
     }
     else {
@@ -191,5 +192,19 @@ export class InputSystem extends BaseSystem {
       }
     }
     return btnIdx
+  }
+}
+
+export class MovementSystem extends EntitySystem {
+  constructor() {
+    super(ComponentFamily.all(c.Position, c.Velocity))
+  }
+
+  process(dt: number, e: Entity) {
+    const pos = e.get(c.Position)
+    const vel = e.get(c.Velocity)
+
+    pos.x += vel.x * dt
+    pos.y += vel.y * dt
   }
 }

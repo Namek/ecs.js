@@ -4,11 +4,19 @@ import {
   BaseSystem, ComponentFamily, Entity, EntitySystem, World
 } from "./ecs.js";
 import {
-  InputSystem, ShapeRenderSystem, newShapeRect, newShapeCircle
+  InputSystem,
+  MovementSystem,
+  ShapeRenderSystem,
+  newShapeRect,
+  newShapeCircle
 } from "./systems/engine.js"
 import {
-  GameStateSystem, AvatarLogicSystem, BlockLogicSystem, EntityFactoryManager
+  AvatarLogicSystem,
+  BlockLogicSystem,
+  GameStateSystem
 } from "./systems/game_logic.js"
+
+import EntityFactoryManager from "./systems/entity_factory.js"
 
 import c from './components.js'
 import C from './constants.js'
@@ -26,6 +34,7 @@ let world = new World([
   InputSystem,
   BlockLogicSystem,
   AvatarLogicSystem,
+  MovementSystem,
 
   // render
   ShapeRenderSystem,
