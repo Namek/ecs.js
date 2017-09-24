@@ -2,8 +2,7 @@
 
 import {BaseSystem} from '../ecs.js'
 import {newShapeRect} from './engine.js'
-import c from '../components.js'
-import C from '../constants.js'
+import {c, C} from '../enums/index.js'
 
 export default class EntityFactoryManager extends BaseSystem {
   spawnPoints: Array<number>

@@ -52,6 +52,7 @@ Tech: ES6, Flowtype
   * `hasTag(entityOrId): boolean`
   * `toggleTag(entityOrId): boolean` - toggles a tag, then returns equivalent of `hasTag(tag)`
   * `getEntities(tag: string): Array<Entity>` - get all entities having the tag
+  * `getEntity(tag: string): Entity` - get first entity having the tag
 
 # Example usage
 

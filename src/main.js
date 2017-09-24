@@ -4,7 +4,7 @@ import {
   BaseSystem, ComponentFamily, Entity, EntitySystem, World
 } from "./ecs.js";
 import {
-  InputSystem,
+  GamepadInputSystem,
   MovementSystem,
   ShapeRenderSystem,
   newShapeRect,
@@ -13,14 +13,12 @@ import {
 import {
   AvatarLogicSystem,
   BlockLogicSystem,
-  GameStateSystem
+  GameStateSystem,
+  AvatarInputSystem
 } from "./systems/game_logic.js"
 
 import EntityFactoryManager from "./systems/entity_factory.js"
-
-import c from './components.js'
-import C from './constants.js'
-
+import {c, C, T} from './enums/index.js'
 
 
 const canvas: any = document.getElementById('canvas')
@@ -31,7 +29,8 @@ let world = new World([
 
   // logic
   GameStateSystem,
-  InputSystem,
+  GamepadInputSystem,
+  AvatarInputSystem,
   BlockLogicSystem,
   AvatarLogicSystem,
   MovementSystem,
@@ -53,25 +52,13 @@ world.newEntity()
 
 let prevTime = Date.now()
 function processWorld() {
-    let curTime = Date.now()
-    let deltaTime = (curTime - prevTime)/1000
-    prevTime = curTime
-    world.process(deltaTime)
-    requestAnimationFrame(processWorld)
-}
+  let curTime = Date.now()
+  let deltaTime = (curTime - prevTime)/1000
+  prevTime = curTime
+  world.process(deltaTime)
+  requestAnimationFrame(processWorld)
+} 
+processWorld()
 
-window.addEventListener("gamepadconnected", function (e) {
-  let gamepad = window.navigator.getGamepads()[e.gamepad.index];
-
-  console.log(
-    "Gamepad connected at index %d: %s. %d buttons, %d axes.",
-    gamepad.index, gamepad.id,
-    gamepad.buttons.length, gamepad.axes.length
-  );
-
-  world.getSystem(InputSystem).gamepad = gamepad
-
-  processWorld()
-})
-
+// just for debugging
 window.world = world

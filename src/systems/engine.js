@@ -4,8 +4,7 @@ import {
   BaseSystem, ComponentFamily, Entity, EntitySystem
 } from "../ecs.js"
 
-import c from '../components.js'
-import C from '../constants.js'
+import {c, C} from '../enums/index.js'
 
 
 export function newShapeRect(width: number, height: number, rotation: ?number) {
@@ -45,7 +44,7 @@ export class ShapeRenderSystem extends EntitySystem {
   }
 
   process(dt: number, e: Entity) {
-    const input = this.world.getSystem(InputSystem)
+    const input = this.world.getSystem(GamepadInputSystem)
     const ctx = this.ctx
     const shape = e.get(c.Shape)
     const color = e.get$(c.Color)//optional
@@ -110,7 +109,7 @@ export class ShapeRenderSystem extends EntitySystem {
 /**
  * Supports XBox 360 game pad.
  */
-export class InputSystem extends BaseSystem {
+export class GamepadInputSystem extends BaseSystem {
   gamepad: any
   buttonState: Object
   prevButtonState: Object
@@ -130,6 +129,18 @@ export class InputSystem extends BaseSystem {
     this.leftStick = [0, 0, 0, 0, 0]
   }
 
+  init() {
+    window.addEventListener("gamepadconnected", evt => {
+      let gamepad = this.gamepad = window.navigator.getGamepads()[evt.gamepad.index];
+
+      console.log(
+        "Gamepad connected at index %d: %s. %d buttons, %d axes.",
+        gamepad.index, gamepad.id,
+        gamepad.buttons.length, gamepad.axes.length
+      )
+    })
+  }
+
   process(dt: number) {
     const gamepad = this.gamepad
     for (let i in gamepad.buttons) {
@@ -143,6 +154,10 @@ export class InputSystem extends BaseSystem {
     this.axes = gamepad.axes
     this.leftStick[0] = gamepad.axes[0]
     this.leftStick[1] = gamepad.axes[1]
+  }
+
+  get isAnyGamepadConnected(): boolean {
+    return !!this.gamepad
   }
 
   isButtonPressed(b: any) {

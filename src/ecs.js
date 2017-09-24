@@ -525,6 +525,10 @@ class TagManager extends EntitySystem {
   getEntities(tag: string): Array<Entity> {
     return this.entitiesByTag[tag]
   }
+
+  getEntity(tag: string): Entity {
+    return this.entitiesByTag[tag][0]
+  }
 }
 
 function _findEntityIndex(id: number, collection: Array<Entity>): number {
